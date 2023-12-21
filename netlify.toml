@@ -1,0 +1,7 @@
+[build]
+  publish = "dist/"
+  command = "npm run build"
+
+[[edge_functions]]
+  function = "cohere_command"
+  path = "/api/cohere_command"

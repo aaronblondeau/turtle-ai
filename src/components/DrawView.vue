@@ -1,20 +1,43 @@
 <template>
   <div class="grid md:grid-cols-2 gap-4">
     <div class="grid grid-cols-1 m-4">
+      <div role="alert" class="alert alert-error" v-if="error">
+        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+        <span>{error}</span>
+      </div>
       <div>
         <div class="label">
           <span class="label-text">What should I draw?</span>
         </div>
-        <input type="text" model="prompt" placeholder="Draw a red square!" class="input input-bordered w-full" />
+        <input type="text" v-model="prompt" placeholder="Draw a red square!" class="input input-bordered w-full" />
       </div>
-      <button class="btn btn-primary w-full" @click="generateCommands">Generate</button>
+      <button class="btn btn-primary w-full" :disabled="busy" @click="generateCommands">
+        <span v-if="busy" class="loading loading-spinner"></span>
+        Generate Code
+      </button>
       <div>
         <textarea class="textarea w-full h-96" placeholder="forward(100)" v-model="commands"></textarea>
       </div>
-      <button class="btn btn-primary w-full" @click="runCommands">Run</button>
+      <div class="grid grid-cols-2 gap-4">
+        <button class="btn btn-primary w-full" :disabled="busy" @click="runCommands">Run Code</button>
+        <div class="form-control">
+          <label class="label cursor-pointer">
+            <span class="label-text">Show All Model Output</span> 
+            <input type="checkbox" v-model="showModelOutput" class="checkbox" />
+          </label>
+        </div>
+      </div>
     </div>
     <div class="flex justify-center m-4">
       <canvas ref="turtlecanvas" width="400" height="400" class="border border-indigo-600"></canvas>
+    </div>
+  </div>
+  <div class="p-4" v-if="showModelOutput">
+    <div class="card w-full bg-base-100 shadow-xl">
+      <div class="card-body">
+        <h2 class="card-title">Model Output</h2>
+        <pre style="max-width: 100%; overflow-x: scroll;">{{modelOutput}}</pre>
+      </div>
     </div>
   </div>
 </template>
@@ -33,29 +56,50 @@ const { Turtle } = (window as any).BetterTurtle
 const turtlecanvas = ref<HTMLCanvasElement>()
 const prompt = ref('')
 const commands = ref('')
+const busy = ref(false)
+const error = ref('')
+const modelOutput = ref('')
+const showModelOutput = ref(false)
+let turtle: typeof Turtle | null = null
 
 function runCommands() {
+  if (!turtle) return
+  turtle.clear()
+  turtle.goto(0, 0)
+  error.value = ''
   // https://caesarovich.github.io/better-turtle/classes/Turtle.html
   // Using eval on user input is usually a big no-no, but in this case it's fine
-  eval(commands.value)
+  // run commands one line at a time
+  const commandLines = commands.value.split('\n')
+  for (const commandLine of commandLines) {
+    eval(commandLine)
+  }
 }
 
-function generateCommands() {
-  console.log('~~ Would generate commands for:', prompt.value)
-  axios.post(`${process.env.URL}/api/cohere_command`, { prompt: prompt.value })
-    .then((response) => {
-      commands.value = JSON.stringify(response.data, null, 2)
-    })
-    .catch((error) => {
-      console.log('~~ error is:', error)
-    })
+async function generateCommands() {
+  error.value = ''
+  busy.value = true
+  try {
+    const response = await axios.post(`${process.env.URL}/api/cohere_command`, { prompt: prompt.value })
+    commands.value = response.data.commands
+    modelOutput.value = response.data.modelOutput
+  } catch (e) {
+    console.error(e)
+    if (e instanceof Error) {
+      error.value = e.message
+    } else {
+      error.value = e + ''
+    }
+  } finally {
+    busy.value = false
+  }
 }
 
 onMounted(() => {
   if (turtlecanvas.value) {
     const ctx = turtlecanvas.value.getContext('2d')
     if (ctx) {
-      const turtle = new Turtle(ctx)
+      turtle = new Turtle(ctx)
       turtle.expose(window)
     }
   }

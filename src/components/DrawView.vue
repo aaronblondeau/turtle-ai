@@ -6,12 +6,23 @@
         <span>{error}</span>
       </div>
       <div>
+        <p>
+          turtleAI (<a href="https://github.com/aaronblondeau/turtle-ai" target="_blank">see source</a>) is tool that tests different AI model's ability to draw shapes with LOGO ("Turtle") graphics commands. This implementation uses
+          <a href="https://caesarovich.github.io/better-turtle/index.html" target="_blank">BetterTurtle</a>.
+          Start by typing a prompt, then click "Generate Code" to generate LOGO commands. Click "Run Code" down at the bottom to run the commands and see the drawing.
+        </p>
+        <div class="label">
+          <span class="label-text">Model</span>
+        </div>
+        <select v-model="settingsStore.model" class="select select-bordered w-full max-w-xs">
+          <option v-for="modelOption of settingsStore.modelOptions" :key="modelOption">{{ modelOption }}</option>
+        </select>
         <div class="label">
           <span class="label-text">What should I draw?</span>
         </div>
         <input type="text" v-model="prompt" placeholder="Draw a red square!" class="input input-bordered w-full" />
       </div>
-      <button class="btn btn-primary w-full" :disabled="busy" @click="generateCommands">
+      <button class="btn btn-primary w-full mt-4" :disabled="busy" @click="generateCommands">
         <span v-if="busy" class="loading loading-spinner"></span>
         Generate Code
       </button>
@@ -28,7 +39,7 @@
         </div>
       </div>
     </div>
-    <div class="flex justify-center m-4">
+    <div class="m-4">
       <canvas ref="turtlecanvas" width="400" height="400" class="border border-indigo-600"></canvas>
     </div>
   </div>
@@ -51,6 +62,9 @@ declare var process: {
 }
 import { onMounted, ref } from 'vue'
 import axios from 'axios'
+import { useSettingsStore } from '@/stores/settings'
+
+const settingsStore = useSettingsStore()
 
 const { Turtle } = (window as any).BetterTurtle
 const turtlecanvas = ref<HTMLCanvasElement>()
@@ -80,7 +94,7 @@ async function generateCommands() {
   error.value = ''
   busy.value = true
   try {
-    const response = await axios.post(`${process.env.URL}/api/cohere_command`, { prompt: prompt.value })
+    const response = await axios.post(`${process.env.URL}/api/` + settingsStore.model, { prompt: prompt.value })
     commands.value = response.data.commands
     modelOutput.value = response.data.modelOutput
   } catch (e) {

@@ -1,28 +1,21 @@
 // NOTE, COHERE_API_KEY is set in netlify UI, "netlify dev" makes it work locally and when deployed:
 // https://app.netlify.com/sites/turtle-ai/configuration/env
 
-import type { Context } from "@netlify/edge-functions";
+import extractCommands from "./lib/extractCommands.ts";
+import { stripIndent } from "https://deno.land/x/deno_tags@1.8.2/tags.ts";
 
-const validCommands = [
-  'forward',
-  'left',
-  'right',
-  'goto',
-  'putPenUp',
-  'putPenDown',
-  'setWidth',
-  'setColor'
-]
+export const config = { path: "/api/cohere_command" };
 
-export default async (request: Request, context: Context) => {
+export default async (request: Request) => {
 
   const reqJson = await request.json();
   const prompt = reqJson.prompt;
 
-  // Buile the request to cohere
+  // Build the request to cohere
+  // NOTE : if you change the list of commands in the prompt you'll also want to update validCommands array in extractCommands.ts
   const cohereBody = {
     model: "command",
-    prompt: `You are an assistant who writes JavaScript code that fulfills requests to create drawings.
+    prompt: stripIndent`You are an assistant who writes JavaScript code that fulfills requests to create drawings.
     You draw by moving a turtle around a canvas that is 400 pixels wide, and 400 pixels tall.
     
     You have at your disposal the following JavaScript functions to operate the pen:
@@ -81,27 +74,15 @@ export default async (request: Request, context: Context) => {
     },
     body: JSON.stringify(cohereBody),
   });
+  
+  // Parse the response as JSON
   const cohereJson = await postRequest.json();
-  let modelOutput = cohereJson.generations[0].text;
 
-  // Clean up the output
-  modelOutput = modelOutput.replace(/done\(\)\n```/g, '');
-  modelOutput = modelOutput.replace(/done\(\);\n```/g, '');
-  modelOutput = modelOutput.replace('```javascript', '');
-  modelOutput = modelOutput.replace('```', '');
-  let commands = ''
-  for (let commandLine of modelOutput.split('\n')) {
-    commandLine = commandLine.trim()
+  // Get the model output from the response
+  const modelOutput = cohereJson.generations[0].text;
 
-    // skip empty lines
-    if (commandLine === '') continue
-
-    // make sure commandLine starts with one of validCommands
-    const command = commandLine.split('(')[0]
-    if (validCommands.includes(command)) {
-      commands += commandLine + '\n' 
-    }
-  }
+  // Extract the commands from the response
+  const commands = extractCommands(modelOutput  )
 
   // Return the output
   return Response.json({ commands, modelOutput });

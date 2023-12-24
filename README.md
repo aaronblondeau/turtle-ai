@@ -2,7 +2,9 @@
 
 This a project that tests AI's ability to create code that draws with [LOGO/Turtle](https://caesarovich.github.io/better-turtle/index.html)
 
-## Netlify (hosting & edge functions)
+Currently hosted here : [https://turtle-ai.netlify.app/](https://turtle-ai.netlify.app/)
+
+## Netlify (dev and hosting w/ edge functions)
 
 Setup was initialized with:
 
